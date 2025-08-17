@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$webhook = "YOUR_DISCORD_WEBHOOK_URL"
+$webhook = "https://discord.com/api/webhooks/1406777013909323967/Gu2KL4c1jclX3lzXgvaaSh2PSNjfe-MWFMr3nU8jJwnJxAgw4ObCiM1pxanM6c8PHYGS"
 
 # Check Python
 try { python --version >$null 2>&1 } catch { 
