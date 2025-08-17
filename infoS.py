@@ -14,7 +14,6 @@ TEMPFILE = "chrome_temp.db"  # Temporary database copy
 
 # ===== FUNCTIONS =====
 def kill_browsers():
-    """Force close all browsers to prevent database locks"""
     browsers = ["chrome.exe", "msedge.exe", "firefox.exe", "opera.exe", "brave.exe"]
     for browser in browsers:
         os.system(f"taskkill /f /im {browser} >nul 2>&1")
